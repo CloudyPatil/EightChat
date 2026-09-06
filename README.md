@@ -16,6 +16,12 @@ pnpm dev:server
 The API starts at `http://localhost:3000`; its health check is available at
 `GET /health`.
 
+## Mobile app
+
+The Expo app is in `apps/mobile`. Copy `apps/mobile/.env.example` to
+`apps/mobile/.env` and set the API address for the device or emulator you are
+using, then run `pnpm dev:mobile`.
+
 Current authentication endpoints:
 
 - `POST /api/auth/register` with `username` and `password`

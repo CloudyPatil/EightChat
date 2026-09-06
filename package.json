@@ -8,13 +8,13 @@
     "shared"
   ],
   "scripts": {
-    "dev:server": "pnpm --dir server dev",
-    "dev:mobile": "pnpm --dir apps/mobile start",
-    "dev": "pnpm docker:up && pnpm dev:server",
+    "dev:server": "corepack pnpm --dir server dev",
+    "dev:mobile": "corepack pnpm --dir apps/mobile start",
+    "dev": "corepack pnpm docker:up && corepack pnpm dev:server",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "setup": "pnpm install && pnpm docker:up"
+    "setup": "corepack pnpm install && docker compose up -d"
   },
   "packageManager": "pnpm@11.1.2"
 }
