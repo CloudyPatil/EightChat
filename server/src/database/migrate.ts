@@ -269,6 +269,49 @@ const migrations = [
       ADD COLUMN IF NOT EXISTS password_hash VARCHAR(256);
     `,
   },
+  {
+    id: 13,
+    name: 'add_direct_conversation_key',
+    sql: `
+      ALTER TABLE conversations
+      ADD COLUMN IF NOT EXISTS direct_conversation_key VARCHAR(73);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_direct_key
+      ON conversations(direct_conversation_key)
+      WHERE direct_conversation_key IS NOT NULL;
+    `,
+  },
+  {
+    id: 14,
+    name: 'create_push_devices_table',
+    sql: `
+      CREATE TABLE IF NOT EXISTS push_devices (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expo_push_token VARCHAR(255) NOT NULL UNIQUE,
+        platform VARCHAR(10) NOT NULL CHECK (platform IN ('ios', 'android')),
+        notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        hide_message_preview BOOLEAN NOT NULL DEFAULT TRUE,
+        last_active_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_push_devices_user ON push_devices(user_id);
+    `,
+  },
+  {
+    id: 15,
+    name: 'add_clear_and_personal_message_deletion',
+    sql: `
+      ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP;
+      CREATE TABLE IF NOT EXISTS message_user_deletions (
+        message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        deleted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (message_id, user_id)
+      );
+    `,
+  },
 ];
 
 export async function runMigrations() {

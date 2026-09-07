@@ -29,6 +29,8 @@ ios/
 # Logs
 logs/
 *.log
+server/uploads/*
+!server/uploads/.gitkeep
 npm-debug.log*
 
 # Docker

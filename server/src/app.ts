@@ -6,21 +6,28 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 
 import { config } from './config/env';
 import { logger } from './utils/logger';
 import { connectPostgres } from './config/database';
 import { connectRedis } from './config/redis';
+import { redis } from './config/redis';
+import { pgPool } from './config/database';
 import { runMigrations } from './database/migrate';
 
 // Routes
 import authRoutes from './routes/auth.routes';
-
-// Socket handlers (we'll add these later)
-// import { initializeSocket } from './socket/socketServer';
+import usersRoutes from './routes/users.routes';
+import conversationsRoutes from './routes/conversations.routes';
+import messagesRoutes from './routes/messages.routes';
+import uploadsRoutes from './routes/uploads.routes';
+import notificationsRoutes from './routes/notifications.routes';
+import { initializeSocket } from './socket/socketServer';
 
 const app = express();
 const httpServer = createServer(app);
+app.set('trust proxy', 1);
 
 // ============ Middleware ============
 app.use(helmet({
@@ -36,6 +43,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
 app.use(morgan(config.IS_PROD ? 'combined' : 'dev'));
 
 // Global rate limit
@@ -50,6 +58,11 @@ app.use(globalLimiter);
 
 // ============ Routes ============
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/conversations', messagesRoutes);
+app.use('/api/conversations', conversationsRoutes);
+app.use('/api/conversations', uploadsRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -71,6 +84,18 @@ export const io = new SocketServer(httpServer, {
   pingTimeout: 30000,
   pingInterval: 10000,
 });
+
+app.get('/ready', async (_req, res) => {
+  try {
+    await Promise.all([pgPool.query('SELECT 1'), redis.ping()]);
+    res.json({ status: 'ready' });
+  } catch {
+    res.status(503).json({ status: 'unavailable' });
+  }
+});
+
+initializeSocket(io);
+app.set('io', io);
 
 // ============ 404 Handler ============
 app.use((req, res) => {

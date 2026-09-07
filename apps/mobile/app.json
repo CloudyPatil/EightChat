@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "plugins": ["expo-secure-store"],
+    "plugins": ["expo-secure-store", ["expo-notifications", { "defaultChannel": "messages" }]],
     "ios": {
       "supportsTablet": true
     },
