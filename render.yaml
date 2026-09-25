@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: eightchat-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: CLIENT_URL
+        value: https://eightchat.invalid
+      - key: POSTGRES_SSL
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_DB
+        sync: false
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false

@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@sentry/react-native": "^8.25.0",
     "expo": "~57.0.20",
     "expo-constants": "~57.0.17",
     "expo-device": "~57.0.1",
+    "expo-file-system": "^57.0.6",
     "expo-image-picker": "~57.0.16",
     "expo-notifications": "~57.0.17",
     "expo-secure-store": "~57.0.3",

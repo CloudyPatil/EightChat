@@ -312,6 +312,35 @@ const migrations = [
       );
     `,
   },
+  {
+    id: 16,
+    name: 'create_user_blocks_table',
+    sql: `
+      CREATE TABLE IF NOT EXISTS user_blocks (
+        blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        blocked_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (blocker_id, blocked_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_blocks_blocker ON user_blocks(blocker_id);
+      CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks(blocked_id);
+    `,
+  },
+  {
+    id: 17,
+    name: 'create_user_reports_table',
+    sql: `
+      CREATE TABLE IF NOT EXISTS user_reports (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reported_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reason VARCHAR(200),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_reports_reporter ON user_reports(reporter_id);
+      CREATE INDEX IF NOT EXISTS idx_user_reports_reported ON user_reports(reported_id);
+    `,
+  },
 ];
 
 export async function runMigrations() {

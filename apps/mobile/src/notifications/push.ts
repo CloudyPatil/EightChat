@@ -23,8 +23,8 @@ export const getPushToken = async (): Promise<{ token: string; platform: 'ios' |
   const current = await Notifications.getPermissionsAsync();
   const permission = current.status === 'granted' ? current : await Notifications.requestPermissionsAsync();
   if (permission.status !== 'granted') throw new Error('Notification permission was not granted.');
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
-  if (!projectId) throw new Error('Missing EXPO_PUBLIC_EAS_PROJECT_ID.');
+  const projectId = Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId ?? process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+  if (!projectId || projectId === 'REPLACE_WITH_EAS_PROJECT_ID') throw new Error('Expo project ID is not configured.');
   const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
   await SecureStore.setItemAsync(TOKEN_KEY, token);
   return { token, platform: Platform.OS === 'ios' ? 'ios' : 'android' };

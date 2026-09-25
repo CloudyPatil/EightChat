@@ -1,18 +1,18 @@
 // server/src/app.ts
+import * as Sentry from '@sentry/node';
 import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import path from 'path';
 
 import { config } from './config/env';
 import { logger } from './utils/logger';
 import { connectPostgres } from './config/database';
-import { connectRedis } from './config/redis';
-import { redis } from './config/redis';
+import { connectRedis, redisPub, redisSub, redis } from './config/redis';
 import { pgPool } from './config/database';
 import { runMigrations } from './database/migrate';
 
@@ -23,9 +23,21 @@ import conversationsRoutes from './routes/conversations.routes';
 import messagesRoutes from './routes/messages.routes';
 import uploadsRoutes from './routes/uploads.routes';
 import notificationsRoutes from './routes/notifications.routes';
+import profileRoutes from './routes/profile.routes';
+import blocksRoutes from './routes/blocks.routes';
 import { initializeSocket } from './socket/socketServer';
+import { startPushReceiptsJob } from './jobs/pushReceipts.job';
 
 const app = express();
+
+if (config.SENTRY_DSN) {
+  Sentry.init({
+    dsn: config.SENTRY_DSN,
+    environment: config.NODE_ENV,
+    tracesSampleRate: 0.1,
+  });
+}
+
 const httpServer = createServer(app);
 app.set('trust proxy', 1);
 
@@ -43,7 +55,6 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
 app.use(morgan(config.IS_PROD ? 'combined' : 'dev'));
 
 // Global rate limit
@@ -59,6 +70,8 @@ app.use(globalLimiter);
 // ============ Routes ============
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/users', profileRoutes);
+app.use('/api/users', blocksRoutes);
 app.use('/api/conversations', messagesRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/conversations', uploadsRoutes);
@@ -106,6 +119,10 @@ app.use((req, res) => {
 });
 
 // ============ Error Handler ============
+if (config.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', err);
   res.status(err.status || 500).json({
@@ -122,6 +139,7 @@ const startServer = async () => {
     // Connect to all services
     await connectPostgres();
     await connectRedis();
+    io.adapter(createAdapter(redisPub, redisSub));
 
     // Run database migrations
     await runMigrations();
@@ -138,6 +156,8 @@ const startServer = async () => {
 ╚═══════════════════════════════════════╝
       `);
     });
+
+    startPushReceiptsJob();
 
   } catch (error) {
     logger.error('❌ Failed to start server:', error);

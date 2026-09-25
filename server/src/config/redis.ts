@@ -3,30 +3,28 @@ import Redis from 'ioredis';
 import { config } from './env';
 import { logger } from '../utils/logger';
 
+const getRedisOptions = () => {
+  return {
+    password: config.REDIS_PASSWORD || undefined,
+    retryStrategy: (times: number) => {
+      if (times > 10) {
+        logger.error('Redis: Too many retries');
+        return null;
+      }
+      return Math.min(times * 100, 3000);
+    },
+    lazyConnect: true,
+  };
+};
+
 // Main Redis client
-export const redis = new Redis(config.REDIS_URL, {
-  password: config.REDIS_PASSWORD,
-  retryStrategy: (times) => {
-    if (times > 10) {
-      logger.error('Redis: Too many retries');
-      return null;
-    }
-    return Math.min(times * 100, 3000);
-  },
-  lazyConnect: true,
-});
+export const redis = new Redis(config.REDIS_URL, getRedisOptions());
 
 // Subscriber client (for pub/sub)
-export const redisSub = new Redis(config.REDIS_URL, {
-  password: config.REDIS_PASSWORD,
-  lazyConnect: true,
-});
+export const redisSub = new Redis(config.REDIS_URL, getRedisOptions());
 
 // Publisher client
-export const redisPub = new Redis(config.REDIS_URL, {
-  password: config.REDIS_PASSWORD,
-  lazyConnect: true,
-});
+export const redisPub = new Redis(config.REDIS_URL, getRedisOptions());
 
 export const connectRedis = async () => {
   try {
@@ -51,7 +49,8 @@ export const RedisKeys = {
   userSocket: (userId: string) => `socket:${userId}`,
   userRoom: (userId: string) => `room:${userId}`,
   otpCode: (identifier: string) => `otp:${identifier}`,
-  refreshToken: (userId: string) => `refresh:${userId}`,
+  refreshToken: (token: string) => `refresh:${token}`,
+  userRefreshTokens: (userId: string) => `user_tokens:${userId}`, // Set of tokens for a user
   rateLimitMsg: (ip: string) => `rate:msg:${ip}`,
   ghostMode: (userId: string) => `ghost:${userId}`,
   typingStatus: (convId: string) => `typing:${convId}`,
@@ -102,19 +101,26 @@ export class RedisService {
 
   // Refresh tokens
   static async saveRefreshToken(userId: string, token: string): Promise<void> {
-    await redis.setex(
-      RedisKeys.refreshToken(userId),
-      30 * 24 * 60 * 60, // 30 days
-      token
-    );
+    const ttl = 30 * 24 * 60 * 60; // 30 days
+    await redis.setex(RedisKeys.refreshToken(token), ttl, userId);
+    await redis.sadd(RedisKeys.userRefreshTokens(userId), token);
   }
 
-  static async getRefreshToken(userId: string): Promise<string | null> {
-    return redis.get(RedisKeys.refreshToken(userId));
+  static async getRefreshTokenUserId(token: string): Promise<string | null> {
+    return redis.get(RedisKeys.refreshToken(token));
   }
 
-  static async deleteRefreshToken(userId: string): Promise<void> {
-    await redis.del(RedisKeys.refreshToken(userId));
+  static async deleteRefreshToken(userId: string, token: string): Promise<void> {
+    await redis.del(RedisKeys.refreshToken(token));
+    await redis.srem(RedisKeys.userRefreshTokens(userId), token);
+  }
+
+  static async revokeAllUserTokens(userId: string): Promise<void> {
+    const tokens = await redis.smembers(RedisKeys.userRefreshTokens(userId));
+    if (tokens.length > 0) {
+      await redis.del(...tokens.map(t => RedisKeys.refreshToken(t)));
+    }
+    await redis.del(RedisKeys.userRefreshTokens(userId));
   }
 
   // Ghost mode

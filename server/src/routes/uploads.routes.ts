@@ -1,4 +1,3 @@
-import path from 'path';
 import multer from 'multer';
 import { Router } from 'express';
 import { param } from 'express-validator';
@@ -7,7 +6,7 @@ import { authenticate } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validation.middleware';
 
 const upload = multer({
-  dest: path.resolve(__dirname, '..', '..', 'uploads'),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, callback) => callback(null, file.mimetype.startsWith('image/')),
 });

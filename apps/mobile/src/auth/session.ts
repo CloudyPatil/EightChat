@@ -18,4 +18,16 @@ export const getSession = async (): Promise<AuthSession | null> => {
 export const saveSession = (session: AuthSession): Promise<void> =>
   SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
 
+export const updateAccessToken = async (newToken: string): Promise<void> => {
+  const storedSession = await SecureStore.getItemAsync(SESSION_KEY);
+  if (!storedSession) return;
+  try {
+    const session = JSON.parse(storedSession) as AuthSession;
+    session.accessToken = newToken;
+    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // ignore parse error
+  }
+};
+
 export const clearSession = (): Promise<void> => SecureStore.deleteItemAsync(SESSION_KEY);

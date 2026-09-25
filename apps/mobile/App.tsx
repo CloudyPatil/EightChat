@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
+import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,10 +30,22 @@ import {
   searchUsers,
   uploadImage,
 } from './src/api/chat';
-import { clearSession, getSession, saveSession } from './src/auth/session';
+import { clearSession, getSession, saveSession, updateAccessToken } from './src/auth/session';
+import { setSessionStore } from './src/api/client';
 import { createSocket, SendMessageAcknowledgement } from './src/realtime/socket';
 import { registerPushDevice, updatePushPreferences } from './src/api/notifications';
 import { getPushPreferences, getPushToken, getStoredPushToken, PushPreferences, savePushPreferences } from './src/notifications/push';
+
+// Show notifications when app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 type AuthMode = 'login' | 'register';
 
@@ -40,18 +53,51 @@ export default function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isRestoringSession, setIsRestoringSession] = useState(true);
   const [mode, setMode] = useState<AuthMode>('login');
+  const pendingConversationId = useRef<string | null>(null);
+  const sessionRef = useRef<AuthSession | null>(null);
 
   useEffect(() => {
-    void getSession().then(setSession).finally(() => setIsRestoringSession(false));
+    void getSession().then((s) => {
+      sessionRef.current = s;
+      setSession(s);
+    }).finally(() => setIsRestoringSession(false));
+
+    // Wire session store for auto token refresh
+    setSessionStore({
+      getSession: () => sessionRef.current,
+      updateAccessToken: async (token) => {
+        await updateAccessToken(token);
+        if (sessionRef.current) {
+          const updated = { ...sessionRef.current, accessToken: token };
+          sessionRef.current = updated;
+          setSession(updated);
+        }
+      },
+      onLogout: () => {
+        void handleLogout();
+      },
+    });
+
+    // Handle notification tap — open target conversation
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as { conversation_id?: string };
+      if (data?.conversation_id) {
+        pendingConversationId.current = data.conversation_id;
+      }
+    });
+
+    return () => sub.remove();
   }, []);
 
   const handleAuthenticated = async (newSession: AuthSession) => {
     await saveSession(newSession);
+    sessionRef.current = newSession;
     setSession(newSession);
   };
 
   const handleLogout = async () => {
     await clearSession();
+    sessionRef.current = null;
     setSession(null);
     setMode('login');
   };
@@ -62,7 +108,11 @@ export default function App() {
     <SafeAreaView style={styles.app}>
       <StatusBar style="light" />
       {session ? (
-        <ChatApp session={session} onLogout={() => void handleLogout()} />
+        <ChatApp
+          session={session}
+          onLogout={() => void handleLogout()}
+          pendingConversationId={pendingConversationId}
+        />
       ) : (
         <AuthScreen mode={mode} onChangeMode={setMode} onAuthenticated={handleAuthenticated} />
       )}
@@ -70,7 +120,7 @@ export default function App() {
   );
 }
 
-function ChatApp({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
+function ChatApp({ session, onLogout, pendingConversationId }: { session: AuthSession; onLogout: () => void; pendingConversationId: React.MutableRefObject<string | null> }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,6 +138,17 @@ function ChatApp({ session, onLogout }: { session: AuthSession; onLogout: () => 
   useEffect(() => {
     void refreshConversations().catch((error) => Alert.alert('Could not load chats', getErrorMessage(error))).finally(() => setIsLoading(false));
   }, [refreshConversations]);
+
+  // Open conversation from a notification tap
+  useEffect(() => {
+    if (!isLoading && pendingConversationId.current && conversations.length > 0) {
+      const target = conversations.find((c) => c.id === pendingConversationId.current);
+      if (target) {
+        pendingConversationId.current = null;
+        openConversation(target);
+      }
+    }
+  }, [isLoading, conversations]);
 
   useEffect(() => { void getPushPreferences().then(setPushPreferences); }, []);
 

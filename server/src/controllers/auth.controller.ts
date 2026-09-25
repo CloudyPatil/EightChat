@@ -1,3 +1,4 @@
+// server/src/controllers/auth.controller.ts
 import { Request, Response } from 'express';
 import argon2 from 'argon2';
 import { pgPool } from '../config/database';
@@ -45,6 +46,12 @@ export class AuthController {
     try {
       const username = req.body.username.trim().toLowerCase();
       const { password } = req.body;
+
+      if (!password || password.length < 8 || !/\d/.test(password)) {
+        res.status(400).json({ success: false, error: 'Password must be at least 8 characters long and contain a number' });
+        return;
+      }
+
       const passwordHash = await argon2.hash(password, {
         type: argon2.argon2id,
       });
@@ -115,8 +122,9 @@ export class AuthController {
       }
 
       const decoded = verifyRefreshToken(refreshToken);
-      const storedToken = await RedisService.getRefreshToken(decoded.userId);
-      if (!storedToken || storedToken !== refreshToken) {
+      const storedUserId = await RedisService.getRefreshTokenUserId(refreshToken);
+
+      if (!storedUserId || storedUserId !== decoded.userId) {
         res.status(401).json({ success: false, error: 'Invalid refresh token' });
         return;
       }
@@ -136,8 +144,14 @@ export class AuthController {
   static async logout(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user!.userId;
-      await RedisService.deleteRefreshToken(userId);
-      await RedisService.setUserOffline(userId);
+      const refreshToken = req.body.refresh_token; // Assume client passes refresh_token to revoke
+
+      if (refreshToken) {
+        await RedisService.deleteRefreshToken(userId, refreshToken);
+      }
+      // If we also want to set them offline globally, we can, but multi-device means we might just close this socket.
+      // We will skip setUserOffline to avoid kicking other devices, or just rely on socket disconnect.
+
       res.json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
       logger.error('logout error:', error);

@@ -1,3 +1,5 @@
+import { apiBaseUrl } from './config';
+
 export type AuthenticatedUser = {
   id: string;
   username: string;
@@ -21,9 +23,6 @@ type AuthResponse = {
   refresh_token?: string;
   user?: AuthenticatedUser;
 };
-
-const apiBaseUrl = (process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000/api')
-  .replace(/\/$/, '');
 
 const authenticate = async (endpoint: 'login' | 'register', username: string, password: string) => {
   let response: Response;

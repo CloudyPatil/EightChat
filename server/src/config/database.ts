@@ -8,6 +8,7 @@ export const pgPool = new Pool({
   database: config.postgres.database,
   user: config.postgres.user,
   password: config.postgres.password,
+  ssl: config.postgres.ssl ? { rejectUnauthorized: true } : undefined,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,

@@ -1,6 +1,7 @@
 import { pgPool } from '../config/database';
 import { logger } from '../utils/logger';
 import type { Message } from './messages.service';
+import { storePushTicket } from '../jobs/pushReceipts.job';
 
 type Device = { expo_push_token: string; hide_message_preview: boolean };
 
@@ -32,7 +33,16 @@ export const sendMessageNotifications = async (message: Message): Promise<void> 
         headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) logger.warn(`Push delivery failed: ${response.status}`);
+      if (!response.ok) {
+        logger.warn(`Push delivery failed: ${response.status}`);
+        return;
+      }
+      const result = await response.json() as { data?: { status: string; id?: string; details?: { error?: string } } };
+      if (result.data?.status === 'ok' && result.data.id) {
+        await storePushTicket(result.data.id, device.expo_push_token);
+      } else if (result.data?.details?.error === 'DeviceNotRegistered') {
+        await pgPool.query('DELETE FROM push_devices WHERE expo_push_token = $1', [device.expo_push_token]);
+      }
     } catch (error) {
       logger.error('Push delivery error:', error);
     }
