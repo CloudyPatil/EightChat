@@ -16,10 +16,5 @@
     "docker:logs": "docker compose logs -f",
     "setup": "corepack pnpm install && docker compose up -d"
   },
-  "packageManager": "pnpm@11.1.2",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@sentry/cli"
-    ]
-  }
+  "packageManager": "pnpm@11.1.2"
 }
