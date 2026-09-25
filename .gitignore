@@ -7,7 +7,6 @@ node_modules/
 .env
 .env.local
 .env.production
-apps/mobile/google-services.json
 apps/mobile/google-service-account.json
 
 # Build outputs

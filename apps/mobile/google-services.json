@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1042408978424",
+    "project_id": "eightchat-761e4",
+    "storage_bucket": "eightchat-761e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1042408978424:android:ca9b2f72585c619507880d",
+        "android_client_info": {
+          "package_name": "com.eightchat.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9QiqIfXL1X_0JGGTnDHLifZil-Itx5QM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
