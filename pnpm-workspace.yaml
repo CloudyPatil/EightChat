@@ -4,5 +4,6 @@ packages:
   - shared
 
 allowBuilds:
+  '@sentry/cli': true
   argon2: true
   esbuild: true
